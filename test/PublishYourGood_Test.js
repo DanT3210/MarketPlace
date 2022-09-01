@@ -36,6 +36,8 @@ describe("Market contract Test", function () {
      
     console.log(await hardhatMarket.Value());
     expect(await hardhatMarket.Value()).to.equal(price);
+    const DurationDate= await hardhatMarket.connect(owner).get_txTime();
+    console.log("END BUY-----------------");
   });
 
   it("Ship Item", async function(){
@@ -44,6 +46,9 @@ describe("Market contract Test", function () {
     const shipped= await hardhatMarket.connect(owner).shipItem("12345566","0");
     //console.log(await hardhatMarket.allListed());
     //expect();
+    const DurationDate= await hardhatMarket.connect(owner).get_txTime();
+    console.log("END SHIP-----------------");
+    console.log(DurationDate.toString());
   });
 
   it("Received Item", async function(){
@@ -53,12 +58,16 @@ describe("Market contract Test", function () {
 
   it("Release fund", async function(){
     const fundReleased= await hardhatMarket.connect(owner).realeaseFunds("0");
-    console.log(await hardhatMarket.Value());
+    const DurationDate= await hardhatMarket.connect(owner).get_txTime();
+    console.log("ATEEEEEEEE-----------------");
+    console.log(DurationDate.toString());
+    //console.log(await hardhatMarket.Value());
+    
   });
 
-  it("Remove Item", async function(){
+  /*it("Remove Item", async function(){
     const removedItem= await hardhatMarket.Remove("0");
     console.log(removedItem);
-  });
+  });*/
   
 });
