@@ -31,7 +31,7 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
         bool active;
     } 
     
-    enum ItemStatus{Listed,Sold, Shipped, Received, Return_Request, Canceled, Completed, Returned}
+    enum ItemStatus{Listed,Sold, Shipped, Received, Return_Request, Canceled, Completed, Returned, Accept}
     ItemStatus private item_status;  
     uint256 private txDuration;
 
@@ -152,7 +152,7 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
         listedItems[_seller][_id].item_status=nextStatus(2);
         emit ShippedItem(_seller, listedItems[_seller][_id].uniqueTag,_trackNo, block.timestamp);
         txDuration=addShippingTime_Orc();
-    }      
+    }         
 
     function _realeaseFunds(uint _id, address _seller) internal virtual onlySeller(_id, _seller) nonReentrant itemActive(_id, _seller){
         //Update this condition, maybe an IF with multiple checks
@@ -167,9 +167,16 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
         txDuration=0;
     }    
 
-    function _acceptReturn(uint _id, address _seller)internal virtual onlySeller(_id, _seller){}
+    function _acceptReturn(uint _id, address _seller)internal virtual onlySeller(_id, _seller) itemActive(_id, _seller){
+        require(listedItems[_seller][_id].item_status==ItemStatus.Return_Request, "ERROR: Not returned");
+        listedItems[_seller][_id].item_status=nextStatus(8);
+    }
 
-    function _receivedReturn(uint _id, address _seller) internal virtual onlySeller(_id, _seller){}
+    function _receivedReturn(uint _id, address _seller) internal virtual onlySeller(_id, _seller){
+        require(listedItems[_seller][_id].item_status==ItemStatus.Shipped, "ERROR Item hasn't been shipped");
+        listedItems[_seller][_id].item_status=nextStatus(7);
+        _removeBuyers(listedItems[_seller][_id].uniqueTag);
+    }
     //------------------------------------------------------------------------------------------------------------------------------------------------------------------//
 
     //BUYER FUNCTIONALITIES// 
@@ -203,16 +210,24 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
         txDuration=updateTime_Orc();
     }       
 
-    function _returnItem(address _seller,uint _id,uint _trackNo, address buyer) internal virtual onlyBuyer(listedItems[_seller][_id].uniqueTag, buyer){
+    function _returnItem(address _seller,uint _id, address buyer) internal virtual onlyBuyer(listedItems[_seller][_id].uniqueTag, buyer){
         // ItemListed memory internalItem=listedItems[_seller][_id];
-        require (listedItems[_seller][_id].item_status==ItemStatus.Completed, "ERROR: Sale's Closed");
+        require (listedItems[_seller][_id].item_status!=ItemStatus.Completed, "ERROR: Sale's Closed");
         require (listedItems[_seller][_id].item_status==ItemStatus.Received, "ERROR: Item hasn't been received");
         require (block.timestamp<txDuration, "ERROR: Return Window's Close");
         listedItems[_seller][_id].item_status==nextStatus(4);
-        emit ShippedItem(buyer, listedItems[_seller][_id].itemPrice,_trackNo, block.timestamp);
-        txDuration=addShippingTime_Orc();
-        _removeBuyers(listedItems[_seller][_id].uniqueTag);
+        
+        
+        //_removeBuyers(listedItems[_seller][_id].uniqueTag);
     }      
+
+    function _shipReturn(address _seller,uint _id,uint _trackNo, address buyer)internal virtual onlyBuyer(listedItems[_seller][_id].uniqueTag, buyer){
+        require(listedItems[_seller][_id].item_status==ItemStatus.Accept, "ERROR: Return hasn't been accepted");
+        listedItems[_seller][_id].item_status==nextStatus(2);
+        txDuration=addShippingTime_Orc();
+        emit ShippedItem(buyer, listedItems[_seller][_id].itemPrice,_trackNo, block.timestamp);
+        //_removeBuyers(listedItems[_seller][_id].uniqueTag);
+    }
 
     function _refund(address _seller,uint _id, address buyer) internal virtual onlyBuyer(listedItems[_seller][_id].uniqueTag, buyer) nonReentrant{
         require (listedItems[_seller][_id].item_status==ItemStatus.Shipped, "ERROR: Item in progress");
