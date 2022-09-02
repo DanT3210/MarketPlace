@@ -79,13 +79,13 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
         return address(this).balance;
     }
 
-    function itemsListed_All(address account) public view virtual returns (ItemListed[] memory) {
+    function sellerItemList(address account) public view virtual returns (ItemListed[] memory) {
         return listedItems[account];
     } 
 
-    function itemListed(address account, uint256 _id) public view virtual returns (ItemListed memory) {
+    /*function itemListed(address account, uint256 _id) public view virtual returns (ItemListed memory) {
         return listedItems[account][_id];
-    } 
+    } */
 
     function buyers(uint256 _id) public view virtual returns (address) {
         return itemBuyers[_id];
@@ -117,12 +117,14 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
     }    
 
     function _updatePrice(uint _id, uint _newPrice, address _seller)internal virtual onlySeller(_id, _seller) isListed(_id,_seller){
+        require(_newPrice>0, "ERROR: Price can't be 0");
         listedItems[_seller][_id].itemPrice=_newPrice;
         emit EventLog(_seller, "Price updated",listedItems[_seller][_id].uniqueTag, block.timestamp);
     }      
 
-    function _unPublish(uint _id, address _seller)internal virtual onlySeller(_id, _seller) isListed(_id,_seller){
-        require(listedItems[_seller][_id].item_status==ItemStatus.Canceled, "ERROR: Can't removed item");
+    function _unPublish(uint _id, address _seller)internal virtual onlySeller(_id, _seller) itemActive(_id,_seller){
+        require(listedItems[_seller][_id].item_status!=ItemStatus.Shipped || listedItems[_seller][_id].item_status!=ItemStatus.Sold
+        || listedItems[_seller][_id].item_status!=ItemStatus.Return_Request || listedItems[_seller][_id].item_status!=ItemStatus.Completed, "ERROR: Can't removed item");
         delete listedItems[_seller][_id];
     }   
 
