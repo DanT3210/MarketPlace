@@ -10,9 +10,9 @@ import "hardhat/console.sol";
 
 contract PublishYourGood is PublishFunctionalities {
     
-     function Value()external view returns(uint256){
+     /*function Value()external view returns(uint256){
         return _totalValue();
-    }
+    }*/
 
     function get_txTime()public view returns(uint256){
         return _getTransaction_Time();
@@ -56,13 +56,13 @@ contract PublishYourGood is PublishFunctionalities {
         _realeaseFunds(_id, _msgSender());          
     }    
 
-    function AcceptReturn(uint _id)external{
+    /*function AcceptReturn(uint _id)external{
         _acceptReturn(_id, _msgSender());
     }
 
     function ReceivedReturn(uint _id)external{
         _receivedReturn(_id, _msgSender());
-    }
+    }*/
     //--------------------------------------------------------------------------------------------------------------------------------//
     //BUYER FUNCTIONS//
     function Buy(address _seller, uint _id) external payable{
@@ -81,12 +81,7 @@ contract PublishYourGood is PublishFunctionalities {
     }   
     
     //Return Item
-    function Return(address _seller,uint _id) external{
-        _returnItem(_seller, _id, _msgSender());
+    function Return(address _seller,uint _id, uint _trackNo) external{
+        _returnItem(_seller, _id,_trackNo, _msgSender());
     }   
-
-    function ShipReturn(address _seller,uint _id, uint _trackNo)external{
-        _shipReturn(_seller,_id,_trackNo, _msgSender());
-    }
-
 }

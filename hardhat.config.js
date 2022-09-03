@@ -13,6 +13,12 @@ const ETHERSCAN_KEY=process.env.ETHERSCAN_KEY || "0x";
 module.exports = {
 
   solidity: "0.8.15",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 1000,
+      },
+    },
   defaultNetwork: "hardhat",
   networks: {
     hardhat: {
