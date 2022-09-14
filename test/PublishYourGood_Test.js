@@ -117,6 +117,16 @@ describe("Market contract Test", function () {
     itemStatus= await hardhatMarket._getStatus("0", owner.address);
     console.log(itemStatus);
   });
+
+  /*it("Received ReturnItem", async function(){
+    const receivedItem= await hardhatMarket.Received(owner.address,"0","All OK");
+    //console.log(receivedItem);
+    const DurationDate= await hardhatMarket.get_txTime();
+    console.log("RECEIVED-----------------");
+    itemStatus= await hardhatMarket._getStatus("0", owner.address);
+    console.log(DurationDate.toString());
+    console.log(itemStatus);
+  });
 /*
   it("Accept Return", async function(){
     const AcceptReturn=await hardhatMarket.AcceptReturn("0");

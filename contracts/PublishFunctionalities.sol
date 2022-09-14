@@ -45,12 +45,12 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
     
 
 //*********INTERNAL MODIFIERS***********************************************************************************************************
-    modifier sellerBuyer(uint _id, address account){
+    /*modifier sellerBuyer(uint _id, address account){
         if(itemBuyers[_id]==account || listedItems[account][_id].itemPrice<=0){
             revert ("Not Buyer nor Seller");
         }
         _;
-    }
+    }*/
     
     modifier onlyBuyer(uint _id, address _buyer){
         if(itemBuyers[_id]!=_buyer){revert PFuntionalities_NotBuyer();}
@@ -158,16 +158,19 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
         emit EventLog(_seller, "Item Relisted",listedItems[_seller][_id].uniqueTag,block.timestamp);
     }    
 
-    function _shippedItem(uint256 _trackNo, uint _id, address _seller) internal virtual sellerBuyer(_id, _seller) itemActive(_id, _seller){
-        if(listedItems[_seller][_id].item_status==ItemStatus.Sold || listedItems[_seller][_id].item_status==ItemStatus.Return_Request){
+    function _shippedItem(uint256 _trackNo, uint _id, address _seller) internal virtual onlySeller(_id, _seller) itemActive(_id, _seller){
+        if(listedItems[_seller][_id].item_status==ItemStatus.Sold){
             require(address(this).balance>=listedItems[_seller][_id].itemPrice, "ERROR: Not enought funds");
             require(txDuration>=block.timestamp, "ERROR: Shipping windows expired");
             listedItems[_seller][_id].item_status=nextStatus(2);
-            emit ShippedItem(_seller, listedItems[_seller][_id].uniqueTag,_trackNo, block.timestamp);
-            txDuration=addShippingTime_Orc();
+            //emit ShippedItem(_seller, listedItems[_seller][_id].uniqueTag,_trackNo, block.timestamp);
+            //txDuration=addShippingTime_Orc();
+        }else if(listedItems[_seller][_id].item_status==ItemStatus.Return_Request){
+            //listedItems[_seller][_id].item_status=nextStatus(4);
         }
         //require(listedItems[_seller][_id].item_status==ItemStatus.Sold, "ERROR: Item hasn't been sold");
-        
+        emit ShippedItem(_seller, listedItems[_seller][_id].uniqueTag,_trackNo, block.timestamp);
+        txDuration=addShippingTime_Orc();
     }         
 
     function _realeaseFunds(uint _id, address _seller) internal virtual onlySeller(_id, _seller) nonReentrant itemActive(_id, _seller){
@@ -220,6 +223,7 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
 
     function _receivedItem(address _seller, uint _id, string calldata _review, address buyer) internal virtual onlyBuyer(listedItems[_seller][_id].uniqueTag, buyer){
         //ItemListed memory internalItem=listedItems[_seller][_id];
+
         require (listedItems[_seller][_id].item_status==ItemStatus.Shipped, "ERROR: Item hasn't been shipped");
         listedItems[_seller][_id].item_status=nextStatus(3);
         emit ReceivedItem(buyer, listedItems[_seller][_id].uniqueTag, _review, block.timestamp);
