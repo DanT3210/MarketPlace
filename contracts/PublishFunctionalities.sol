@@ -23,7 +23,7 @@ error PFuntionalities__NotBuyerSeller();
 
 //address payable constant DEVELOPER=payable(0x5B38Da6a701c568545dCfcB03FcB875f56beddC4);
 
-contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOracle {
+contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
 
     struct ItemListed {
         string brand;
@@ -102,50 +102,47 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
     //////////////////////////
     //SELLER FUNCTIONALITIES//
     //////////////////////////
-    function _AddItem(string memory _brand, string memory _model, string memory _description,uint256 _price, string memory _size, uint256 _uniqueTag, address _seller)
-    internal nonReentrant {
+    function _AddItem(string memory _brand, string memory _model, string memory _description,uint256 _price, string memory _size, uint256 _uniqueTag)
+    external nonReentrant {
         _checkPrice(_price);
+        address _seller=_msgSender();
         require(_seller != address(0), "ERROR: action from the zero address");
         listedItems[itemID][_seller]=ItemListed(_brand, _model,_description,item_status,_price,_size, _uniqueTag);
         ItemListed memory aux_List=listedItems[itemID][_seller];
         emit EventLog(_seller, "Listed",_uniqueTag, block.timestamp, aux_List.itemPrice); 
         itemID++;            
-        //revert("ERROR: LIST EXIST");
     }    
 
-    function _updatePrice(uint _id, uint _newPrice, address _seller)internal virtual{
+    function _updatePrice(uint _id, uint _newPrice)external{
+        address _seller=_msgSender();
         _onlySeller(_id, _seller);
         _isListed(_id,_seller);
         _checkPrice(_newPrice);
-        ItemListed memory aux_List=listedItems[_id][_seller];
         listedItems[_id][_seller].itemPrice=_newPrice;
-        emit EventLog(_seller, "Price updated",aux_List.uniqueTag, block.timestamp, aux_List.itemPrice);
     }      
 
-    function _unPublish(uint _id, address _seller)internal virtual{
+    function _unPublish(uint _id)external{
+        address _seller=_msgSender();
         _onlySeller(_id, _seller);
         _isListed(_id,_seller);
         delete listedItems[_id][_seller];
     }   
-
-   /* function _getBuyer(uint _id,address _seller) private view returns(address){
-        return buyers(_id,_seller);
-    }*/
     
-    //Needs an exception to avoid block cancel's funds
-    function _relistItem(uint _id, address _seller) internal{
+    function _relistItem(uint _id) external{
+        address _seller=_msgSender();
         _onlySeller(_id, _seller);
         ItemListed memory aux_List=listedItems[_id][_seller];
-        require(aux_List.item_status==ItemStatus.Canceled, "ERROR: Item can't be relisted"); //Can't relist until Buyer withdraw Canceled Funds *Find a require stattement
-        //address _buyer=_getBuyer(_id,_seller);
+        require(aux_List.item_status==ItemStatus.Canceled, "ERROR: Item can't be relisted");
         require(balanceOff[buyers(_id,_seller)]<=0, "ERROR: Buyer hasn't withdraw yet");
         listedItems[_id][_seller].item_status=ItemStatus.Listed;
-        emit EventLog(_seller, "Item Relisted",aux_List.uniqueTag,block.timestamp, aux_List.itemPrice);
     } 
 
-    function _shippedItem(uint256 _trackNo, uint _id, address _seller) internal virtual{
+    function _shipping(uint256 _trackNo, uint _id)external{
+        _shippedItem(_trackNo, _id, _msgSender());
+    }
+
+    function _shippedItem(uint256 _trackNo, uint _id, address _seller) internal {
         _onlySeller(_id, _seller);
-        //_itemActive(_id, _seller);
         ItemListed memory aux_List=listedItems[_id][_seller];
         require(aux_List.item_status==ItemStatus.Sold || aux_List.item_status==ItemStatus.Return_Request, "ERROR: Item hasn't been sold");
         require(balanceOff[_seller]>=aux_List.itemPrice, "ERROR: Not enought funds");
@@ -155,14 +152,14 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
         txDuration=addShippingTime_Orc();
     }         
 
-    function _realeaseFunds(uint _id, address _account) internal virtual nonReentrant{
-        //_itemActive(_id, _account);
+    function _realeaseFunds(uint _id) external nonReentrant{
         require(txDuration>0, "ERROR: Item hasn't been sold");
+        address _account=_msgSender();
         ItemListed memory aux_List=listedItems[_id][_account];
         uint256 aux_iPrice=aux_List.itemPrice;
         require(balanceOff[_account]>=aux_List.itemPrice, "ERROR: No enough funds");
         require (block.timestamp>=txDuration, "ERROR: Wait few seconds more");
-        uint devTax;//=devFeeCalculation(aux_iPrice);
+        uint devTax;
             if(aux_List.item_status==ItemStatus.Received){
                 devTax=devFeeCalculation(aux_iPrice);
                 listedItems[_id][_account].item_status=ItemStatus.Completed; 
@@ -182,8 +179,8 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
     /////////////////////////
     //BUYER FUNCTIONALITIES// 
     ////////////////////////
-    function _buyItem(address _seller, uint _id, address _buyer) internal virtual nonReentrant{
-        //_itemActive(_id, _seller);
+    function _buyItem(address _seller, uint _id) external payable nonReentrant{
+        address _buyer=_msgSender();
         _isListed(_id,_seller) ;
         require(_seller!=_buyer, "ERROR: You're the seller");
         ItemListed memory aux_List=listedItems[_id][_seller];
@@ -195,7 +192,8 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
         txDuration=updateTime_Orc();
     }  
 
-    function _cancelTransaction(address _seller,uint _id, address _buyer, string calldata _reason) internal virtual nonReentrant{
+    function _cancelTransaction(address _seller,uint _id, string calldata _reason) external nonReentrant{
+        address _buyer=_msgSender();
         _onlyBuyer(_id,_buyer, _seller);
         ItemListed memory aux_List=listedItems[_id][_seller];
         require (aux_List.item_status==ItemStatus.Sold, "ERROR: Item has been shipped");
@@ -207,7 +205,8 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
         itemCanceled[_buyer][_id]=_seller;
     }     
 
-    function _receivedItem(address _seller, uint _id, string calldata _review, address _buyer) internal virtual {
+    function _receivedItem(address _seller, uint _id, string calldata _review) external {
+        address _buyer=_msgSender();
         _buyerSeller(_id,_buyer, _seller);
         ItemListed memory aux_List=listedItems[_id][_seller];
         require (aux_List.item_status==ItemStatus.Shipped, "ERROR: Item hasn't been shipped");
@@ -216,15 +215,14 @@ contract PublishFunctionalities is ReentrancyGuard, Context, Ownable, PublishOra
         txDuration=updateTime_Orc();
     }      
 
-    function _returnItem(address _seller,uint _id, uint _trackNo, address _buyer) internal virtual{
+    function _returnItem(address _seller,uint _id, uint _trackNo) external{
+        address _buyer=_msgSender();
         _onlyBuyer(_id,_buyer, _seller);
         ItemListed memory aux_List=listedItems[_id][_seller];
         require (aux_List.item_status!=ItemStatus.Completed, "ERROR: Sale's Closed");
         if(aux_List.item_status!=ItemStatus.Received){revert ("Item hasn't been received!");}
-        //require (aux_List.item_status!=ItemStatus.Received, "ERROR: Item hasn't been received");
-        require (block.timestamp<txDuration, "ERROR: Return Window's Close");
+        require (block.timestamp<txDuration, "ERROR: Return Window Close");
         listedItems[_id][_seller].item_status=ItemStatus.Return_Request;    
-        //_removeBuyers(listedItems[_seller][_id].uniqueTag);
         _shippedItem(_trackNo, _id, _seller);
     }      
 }
