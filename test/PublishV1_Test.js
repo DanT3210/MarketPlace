@@ -19,16 +19,11 @@ describe("Market contract Test", function () {
     hardhatMarket = await MarketCont.deploy();
 
     const hardhardPublis= await hardhatMarket._AddItem(brand,model,description,price,size,tag);
-    const arrayVariable=await hardhatMarket.sellerItemList("0",owner.address);
-//    itemStatus= await hardhatMarket._getStatus("0", owner.address);
-
-    //const ContractValue = await hardhatMarket.Value();
-    //console.log(ContractValue.toString());
-    console.log("STATUS______________________");
-//    console.log(itemStatus);
-    console.log("Listed");
-
-    //expect(await hardhatToken.totalSupply()).to.equal(ownerBalance);
+   //const arrayVariable=await hardhatMarket.sellerItemList("0",owner.address);
+   itemStatus= await hardhatMarket._getStatus("0", owner.address);
+   console.log("STATUS______________________");
+   console.log(itemStatus);
+   //console.log("Listed");
   });
 
 
@@ -69,10 +64,43 @@ describe("Market contract Test", function () {
     console.log("ITEM RELISTED--------------------");
   });
 
-  it("Buy Item", async function(){
-    const buyItem=await hardhatMarket.connect(addr2)._buyItem(owner.address, "0", { value: price });
-    console.log("Buy Add2_______________________________________________________________________");
+  it("Check Item Listed", async function(){
+    const itemListed_var=await hardhatMarket.sellerItemList("0", owner.address);
     itemStatus= await hardhatMarket._getStatus("0", owner.address);
+    //console.log(itemListed_var);
+    console.log(itemStatus);
+    console.log("SHOW ITEM LISTED-----------------");
+  }); 
+
+  it("Delete item", async function(){
+    const removeItem= await hardhatMarket.connect(owner)._unPublish("0");
+    const itemListed_var=await hardhatMarket.sellerItemList("0", owner.address);
+    itemStatus= await hardhatMarket._getStatus("0", owner.address);
+    console.log(itemStatus);
+    console.log("ITEM REMOVED--------------------");
+    console.log(itemListed_var);
+  });  
+
+  it("New Listed", async function(){
+    const brand="Nike";
+    const model="AJ1";
+    const description="First Class";
+    price="19000000"
+    const size="9";
+    const tag="9191";
+
+   const hardhardPublis= await hardhatMarket._AddItem(brand,model,description,price,size,tag);
+   const arrayVariable=await hardhatMarket.sellerItemList("1",owner.address);
+   itemStatus= await hardhatMarket._getStatus("1", owner.address);
+   console.log(itemStatus);
+   console.log("STATUS______________________");
+   console.log(arrayVariable);
+  });  
+
+  it("Buy Item", async function(){
+    const buyItem=await hardhatMarket.connect(addr2)._buyItem(owner.address, "1", { value: price });
+    console.log("Buy Add2_______________________________________________________________________");
+    itemStatus= await hardhatMarket._getStatus("1", owner.address);
     console.log(itemStatus);
     console.log("END BUY 2-----------------");
   });  
@@ -80,71 +108,56 @@ describe("Market contract Test", function () {
   it("Ship Item", async function(){
     //owner=addr2;
     console.log("------------SHIPPED-------------------------------------------");
-    const shipped= await hardhatMarket.connect(owner)._shipping("12345566","0");
-    itemStatus= await hardhatMarket._getStatus("0", owner.address);
+    const shipped= await hardhatMarket.connect(owner)._shipping("12345566","1");
+    itemStatus= await hardhatMarket._getStatus("1", owner.address);
     console.log(itemStatus);
     console.log("END SHIP-----------------");
   });  
 
   it("Received Item", async function(){
-    const receivedItem= await hardhatMarket.connect(addr2)._receivedItem(owner.address,"0","All OK");
-    itemStatus= await hardhatMarket._getStatus("0", owner.address);
+    const receivedItem= await hardhatMarket.connect(addr2)._receivedItem(owner.address,"1","All OK");
+    itemStatus= await hardhatMarket._getStatus("1", owner.address);
     console.log(itemStatus);
     console.log("END RECEIVED-----------------");
   });
 
+  it("Seller Amount", async function(){
+    const balanceOffItem= await hardhatMarket.connect(addr2).ballanceOff(owner.address);
+    console.log(balanceOffItem.toString());
+    console.log("END BALANCEOFF-----------------");
+  });
   
   it("Return Item", async function(){
-    const ReturnItem=await hardhatMarket.connect(addr2)._returnItem(owner.address,"0", "12222111212");
-    itemStatus= await hardhatMarket._getStatus("0", owner.address);
+    const ReturnItem=await hardhatMarket.connect(addr2)._returnItem(owner.address,"1", "12222111212");
+    itemStatus= await hardhatMarket._getStatus("1", owner.address);
     console.log(itemStatus);
     console.log("END RETURN-----------------");
   });
 
-  /*////////*******Need to wait few seconds (Fund the way to simulate time in test*********
-  it("Buyer Withdraw Funds", async function(){
-    const BuyerWithdrawFunds= await hardhatMarket.connect(addr2)._realeaseFunds("0");
-    itemStatus= await hardhatMarket._getStatus("0", owner.address);
+  it("Seller Received Item", async function(){
+    const receivedItem2= await hardhatMarket.connect(addr2)._receivedItem(owner.address,"1","All OK");
+    itemStatus= await hardhatMarket._getStatus("1", owner.address);
+    console.log(itemStatus);
+    console.log("END SELLER RECEIVED-----------------");
+  });  
+
+  it("Buyer Amount", async function(){
+    const balanceOffItem= await hardhatMarket.ballanceOff(addr2.address);
+    console.log(balanceOffItem.toString());
+    console.log("END BALANCEOFF-----------------");
+  });
+
+  ////////*******Need to wait few seconds (Fund the way to simulate time in test*********
+  it("Seller Withdraw Funds", async function(){
+    const BuyerWithdrawFunds= await hardhatMarket._realeaseFunds("1");
+    itemStatus= await hardhatMarket._getStatus("1", owner.address);
     console.log(itemStatus);    
     console.log("BUYER2 WITHDRAW--------------------");
-  });*/
-
-  /*it("Received ReturnItem", async function(){
-    const receivedItem= await hardhatMarket.Received(owner.address,"0","All OK");
-    //console.log(receivedItem);
-    const DurationDate= await hardhatMarket.get_txTime();
-    console.log("RECEIVED-----------------");
-    itemStatus= await hardhatMarket._getStatus("0", owner.address);
-    console.log(DurationDate.toString());
-    console.log(itemStatus);
   });
 
-  it("Accept Return", async function(){
-    const AcceptReturn=await hardhatMarket.AcceptReturn("0");
-  });
-
-  it("ShipReturn Item", async function(){
-    const ShipReturn=await hardhatMarket.connect(addr2).ShipReturn(owner.address,"0","212222222");
-    console.log("Ship Returned-------------------");
-  });
-
-  it("ReceivedReturn", async function(){
-    const ReceivedReturn=await hardhatMarket.ReceivedReturn("0");
-    console.log("Fully Returned-------------------");
-  });*/
-
-  
-  /*it("Release fund", async function(){
-    const fundReleased= await hardhatMarket.connect(owner).Withdraw("0");
-    itemStatus= await hardhatMarket._getStatus("0", owner.address);
-    console.log(itemStatus);
-    console.log("END TX-------------------");
-    
-  });*/
-
-  it("Remove Item", async function(){
+  /*it("Remove Item", async function(){
     const removedItem= await hardhatMarket._unPublish("0");
     console.log(removedItem);
-  });
+  });*/
   
 });

@@ -19,9 +19,6 @@ error PFuntionalities__NotListed();
 error PFuntionalities__NotEnoughFunds();
 error PFuntionalities__NotBuyerSeller();
 
-//import "./PublishOracle.sol";
-
-//address payable constant DEVELOPER=payable(0x5B38Da6a701c568545dCfcB03FcB875f56beddC4);
 
 contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
 
@@ -158,7 +155,7 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
         ItemListed memory aux_List=listedItems[_id][_account];
         uint256 aux_iPrice=aux_List.itemPrice;
         require(balanceOff[_account]>=aux_List.itemPrice, "ERROR: No enough funds");
-        require (block.timestamp>=txDuration, "ERROR: Wait few seconds more");
+        //require (block.timestamp>=txDuration, "ERROR: Wait few seconds more");
         uint devTax;
             if(aux_List.item_status==ItemStatus.Received){
                 devTax=devFeeCalculation(aux_iPrice);
@@ -184,7 +181,7 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
         _isListed(_id,_seller) ;
         require(_seller!=_buyer, "ERROR: You're the seller");
         ItemListed memory aux_List=listedItems[_id][_seller];
-        require(aux_List.itemPrice<=(msg.value), "ERROR: Need more funds");
+        require(aux_List.itemPrice<=(msg.value) && aux_List.itemPrice>0, "ERROR: Need more funds");
         balanceOff[_seller]+=aux_List.itemPrice;
         listedItems[_id][_seller].item_status=ItemStatus.Sold;
         itemBuyers[_id][_seller]=_buyer;
