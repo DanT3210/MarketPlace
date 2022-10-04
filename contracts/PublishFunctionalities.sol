@@ -29,22 +29,21 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
         ItemStatus item_status;
         uint256 itemPrice; 
         string size;
-        uint256 uniqueTag;
     } 
     
-    enum ItemStatus{Listed,Sold, Shipped, Received, Return_Request, Canceled, Completed}
+    enum ItemStatus{Listed,Sold, Shipped, Received, Rejected, Canceled, Completed}
     ItemStatus private item_status;  
     uint256 private txDuration;
     uint256 private itemID;
 
-    event EventLog(address indexed  _user, string indexed _status,uint indexed Tag, uint _date,  uint price); 
-    event ShippedItem(address indexed _buyer, uint indexed Tag, uint256 _trackNo, uint _date);
-    event ReceivedItem(address indexed _buyer, uint indexed Tag, string _reviewNote, uint _date);  
+    event EventLog(address indexed  _user, string indexed _status, uint _date,  uint price); 
+    event ShippedItem(address indexed _buyer, uint256 _trackNo, uint _date);
+    event ReceivedItem(address indexed _buyer, string _reviewNote, uint _date);  
     event WithdrawFund(address indexed _account, uint indexed _amount, uint indexed _date);  
 
     //mapping(address=>ItemListed[]) private listedItems;  //Item's Seller(s) list
     mapping(uint256=>mapping(address=>address)) private itemBuyers;   //Item's Buyer(s) list (* id-seller-buyer)
-    mapping(address=>uint256)private balanceOff;  //Seller ledger
+    mapping(uint=>mapping(address=>uint256))private balanceOff;  //Seller ledger (itemID-Seller-itemPrice)
     mapping(uint256=>mapping(address=>ItemListed)) private listedItems; //per ID, address-List
     mapping(address=>mapping(uint256=>address))private itemCanceled;//track cancelations based on (buyer-itemID-Seller)
     
@@ -73,16 +72,16 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
         if(_price<=0){ revert PFuntionalities__NotEnoughFunds(); }
     }
     //**********************************************************************************************************************************************
-    function _getStatus(uint _id, address _account)public view returns(ItemStatus){
+    function _itemStatus(uint _id, address _account)public view returns(ItemStatus){
         return listedItems[_id][_account].item_status;
     }
 
-    function sellerItemList(uint _id, address _account) public view virtual returns (ItemListed memory) {
+    function itemListedBySeller(uint _id, address _account) public view virtual returns (ItemListed memory) {
         return listedItems[_id][_account];
     } 
 
-    function ballanceOff(address _account)public view returns(uint){
-        return balanceOff[_account];
+    function ballanceOff(uint _id,address _account)public view returns(uint){
+        return balanceOff[_id][_account];
     }
 
     function buyers(uint256 _id, address _seller) public view virtual returns (address) {
@@ -96,17 +95,18 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
     function devFeeCalculation(uint256 _itemPrice)internal view virtual returns(uint256){
         return (_itemPrice*5/100);
     }
+    
     //////////////////////////
     //SELLER FUNCTIONALITIES//
     //////////////////////////
-    function _AddItem(string memory _brand, string memory _model, string memory _description,uint256 _price, string memory _size, uint256 _uniqueTag)
+    function _AddItem(string memory _brand, string memory _model, string memory _description,uint256 _price, string memory _size)
     external nonReentrant {
         _checkPrice(_price);
         address _seller=_msgSender();
         require(_seller != address(0), "ERROR: action from the zero address");
-        listedItems[itemID][_seller]=ItemListed(_brand, _model,_description,item_status,_price,_size, _uniqueTag);
+        listedItems[itemID][_seller]=ItemListed(_brand, _model,_description,item_status,_price,_size);
         ItemListed memory aux_List=listedItems[itemID][_seller];
-        emit EventLog(_seller, "Listed",_uniqueTag, block.timestamp, aux_List.itemPrice); 
+        emit EventLog(_seller, "Listed",block.timestamp, aux_List.itemPrice); 
         itemID++;            
     }    
 
@@ -130,7 +130,7 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
         _onlySeller(_id, _seller);
         ItemListed memory aux_List=listedItems[_id][_seller];
         require(aux_List.item_status==ItemStatus.Canceled, "ERROR: Item can't be relisted");
-        require(balanceOff[buyers(_id,_seller)]<=0, "ERROR: Buyer hasn't withdraw yet");
+        require(balanceOff[_id][buyers(_id,_seller)]<=0, "ERROR: Buyer hasn't withdraw yet");
         listedItems[_id][_seller].item_status=ItemStatus.Listed;
     } 
 
@@ -141,11 +141,11 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
     function _shippedItem(uint256 _trackNo, uint _id, address _seller) internal {
         _onlySeller(_id, _seller);
         ItemListed memory aux_List=listedItems[_id][_seller];
-        require(aux_List.item_status==ItemStatus.Sold || aux_List.item_status==ItemStatus.Return_Request, "ERROR: Item hasn't been sold");
-        require(balanceOff[_seller]>=aux_List.itemPrice, "ERROR: Not enought funds");
+        require(aux_List.item_status==ItemStatus.Sold || aux_List.item_status==ItemStatus.Rejected, "ERROR: Item hasn't been sold");
+        require(balanceOff[_id][_seller]>=aux_List.itemPrice, "ERROR: Not enought funds");
         require(txDuration>=block.timestamp, "ERROR: Shipping windows expired");
         listedItems[_id][_seller].item_status=ItemStatus.Shipped;
-        emit ShippedItem(_seller, aux_List.uniqueTag,_trackNo, block.timestamp);
+        emit ShippedItem(_seller,_trackNo, block.timestamp);
         txDuration=addShippingTime_Orc();
     }         
 
@@ -154,7 +154,7 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
         address _account=_msgSender();
         ItemListed memory aux_List=listedItems[_id][_account];
         uint256 aux_iPrice=aux_List.itemPrice;
-        require(balanceOff[_account]>=aux_List.itemPrice, "ERROR: No enough funds");
+        require(balanceOff[_id][_account]>=aux_List.itemPrice, "ERROR: No enough funds");
         //require (block.timestamp>=txDuration, "ERROR: Wait few seconds more");
         uint devTax;
             if(aux_List.item_status==ItemStatus.Received){
@@ -169,7 +169,7 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
         payable (owner()).transfer(devTax);        
         payable (_account).transfer(aux_iPrice-devTax);
         emit WithdrawFund(_account, aux_iPrice-devTax, block.timestamp);
-        balanceOff[_account]-=aux_iPrice;        
+        balanceOff[_id][_account]-=aux_iPrice;        
         txDuration=0;
     }     
 
@@ -182,10 +182,10 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
         require(_seller!=_buyer, "ERROR: You're the seller");
         ItemListed memory aux_List=listedItems[_id][_seller];
         require(aux_List.itemPrice<=(msg.value) && aux_List.itemPrice>0, "ERROR: Need more funds");
-        balanceOff[_seller]+=aux_List.itemPrice;
+        balanceOff[_id][_seller]+=aux_List.itemPrice;
         listedItems[_id][_seller].item_status=ItemStatus.Sold;
         itemBuyers[_id][_seller]=_buyer;
-        emit EventLog(_buyer, "Bought",aux_List.uniqueTag, block.timestamp, aux_List.itemPrice);
+        emit EventLog(_buyer, "Bought", block.timestamp, aux_List.itemPrice);
         txDuration=updateTime_Orc();
     }  
 
@@ -194,21 +194,23 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
         _onlyBuyer(_id,_buyer, _seller);
         ItemListed memory aux_List=listedItems[_id][_seller];
         require (aux_List.item_status==ItemStatus.Sold, "ERROR: Item has been shipped");
-        balanceOff[_seller]-=aux_List.itemPrice;
-        balanceOff[_buyer]+=aux_List.itemPrice;
+        balanceOff[_id][_seller]-=aux_List.itemPrice;
+        balanceOff[_id][_buyer]+=aux_List.itemPrice;
         listedItems[_id][_seller].item_status=ItemStatus.Canceled;
-        emit EventLog(_buyer,_reason,aux_List.uniqueTag, block.timestamp, aux_List.itemPrice);
+        emit EventLog(_buyer,_reason,block.timestamp, aux_List.itemPrice);
         txDuration=block.timestamp;
         itemCanceled[_buyer][_id]=_seller;
     }     
-
+////MAKE THIS FUNCTION FUNCTIONAL FOR SELLER & BUYER
+//AS TODAY SELLER WITHDRAW FUNDS IF STATUS IS RECEIVED
+//RETUNR EXCEPTION IS NOT WORKING
     function _receivedItem(address _seller, uint _id, string calldata _review) external {
         address _buyer=_msgSender();
         _buyerSeller(_id,_buyer, _seller);
         ItemListed memory aux_List=listedItems[_id][_seller];
         require (aux_List.item_status==ItemStatus.Shipped, "ERROR: Item hasn't been shipped");
         listedItems[_id][_seller].item_status=ItemStatus.Received;
-        emit ReceivedItem(_buyer, aux_List.uniqueTag, _review, block.timestamp);
+        emit ReceivedItem(_buyer, _review, block.timestamp);
         txDuration=updateTime_Orc();
     }      
 
@@ -219,7 +221,7 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
         require (aux_List.item_status!=ItemStatus.Completed, "ERROR: Sale's Closed");
         if(aux_List.item_status!=ItemStatus.Received){revert ("Item hasn't been received!");}
         require (block.timestamp<txDuration, "ERROR: Return Window Close");
-        listedItems[_id][_seller].item_status=ItemStatus.Return_Request;    
+        listedItems[_id][_seller].item_status=ItemStatus.Rejected;    
         _shippedItem(_trackNo, _id, _seller);
     }      
 }
