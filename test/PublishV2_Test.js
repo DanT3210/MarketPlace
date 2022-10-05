@@ -122,7 +122,7 @@ describe("Market contract Test", function () {
   it("Seller Amount", async function(){
     const balanceOffItem= await hardhatMarket.connect(addr2).ballanceOff("1",owner.address);
     console.log(balanceOffItem.toString());
-    console.log("END BALANCEOFF-----------------");
+    console.log("SELLER BALANCEOFF-----------------");
   });
   
   it("Return Item", async function(){
@@ -133,7 +133,7 @@ describe("Market contract Test", function () {
   });
 
   it("Seller Received Item", async function(){
-    const receivedItem2= await hardhatMarket.connect(addr2)._receivedItem(owner.address,"1","All OK");
+    const receivedItem2= await hardhatMarket.receivedReturn("1","All OK");
     itemStatus= await hardhatMarket._itemStatus("1", owner.address);
     console.log(itemStatus);
     console.log("END SELLER RECEIVED-----------------");
@@ -142,12 +142,15 @@ describe("Market contract Test", function () {
   it("Buyer Amount", async function(){
     const balanceOffItem= await hardhatMarket.ballanceOff("1",addr2.address);
     console.log(balanceOffItem.toString());
-    console.log("END BALANCEOFF-----------------");
+    console.log("BUYER BALANCEOFF-----------------");
+    const balanceOffSeller= await hardhatMarket.ballanceOff("1",owner.address);
+    console.log(balanceOffSeller.toString());    
+    console.log("SELLER BALANCEOFF-----------------");
   });
 
   ////////*******Need to wait few seconds (Fund the way to simulate time in test*********
-  it("Seller Withdraw Funds", async function(){
-    const BuyerWithdrawFunds= await hardhatMarket._realeaseFunds("1");
+  it("Buyer Withdraw Funds", async function(){
+    const BuyerWithdrawFunds= await hardhatMarket.connect(addr2)._realeaseFunds("1");
     itemStatus= await hardhatMarket._itemStatus("1", owner.address);
     console.log(itemStatus);    
     console.log("BUYER2 WITHDRAW--------------------");

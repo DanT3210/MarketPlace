@@ -44,7 +44,7 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
     //mapping(address=>ItemListed[]) private listedItems;  //Item's Seller(s) list
     mapping(uint256=>mapping(address=>address)) private itemBuyers;   //Item's Buyer(s) list (* id-seller-buyer)
     mapping(uint=>mapping(address=>uint256))private balanceOff;  //Seller ledger (itemID-Seller-itemPrice)
-    mapping(uint256=>mapping(address=>ItemListed)) private listedItems; //per ID, address-List
+    mapping(uint256=>mapping(address=>ItemListed)) private listedItems; //per ID-Selleraddress-ItemList
     mapping(address=>mapping(uint256=>address))private itemCanceled;//track cancelations based on (buyer-itemID-Seller)
     
     receive() external payable {}
@@ -58,10 +58,6 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
 
     function _onlySeller(uint256 _id, address _seller)private view{
         if(listedItems[_id][_seller].itemPrice<0){revert PFuntionalities__NotSeller();}
-    }
-
-    function _buyerSeller(uint _id, address _buyer, address _seller)private view{
-        if(listedItems[_id][_seller].itemPrice<0 || itemBuyers[_id][_seller]!=_buyer){revert PFuntionalities__NotBuyerSeller();}
     }
 
      function _isListed(uint256 _id, address _seller)private view{
@@ -173,6 +169,19 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
         txDuration=0;
     }     
 
+    function receivedReturn(uint _id, string calldata _review) public{
+        address _account=_msgSender();
+        address _buyer=itemBuyers[_id][_account];
+        _onlySeller(_id, _account);
+        ItemListed memory aux_List=listedItems[_id][_account];
+        require (aux_List.item_status==ItemStatus.Shipped, "ERROR: Item hasn't been shipped");
+            listedItems[_id][_account].item_status=ItemStatus.Canceled;
+            balanceOff[_id][_account]-=aux_List.itemPrice;
+            balanceOff[_id][_buyer]+=aux_List.itemPrice;   
+            emit ReceivedItem(_account, _review, block.timestamp);
+            txDuration=updateTime_Orc();     
+            itemCanceled[_buyer][_id]=_account;  
+    } 
     /////////////////////////
     //BUYER FUNCTIONALITIES// 
     ////////////////////////
@@ -189,24 +198,26 @@ contract PublishFunctionalities is ReentrancyGuard, Ownable, PublishOracle {
         txDuration=updateTime_Orc();
     }  
 
-    function _cancelTransaction(address _seller,uint _id, string calldata _reason) external nonReentrant{
+    function _cancelTransaction(address _seller,uint _id, string calldata _reason) public nonReentrant{
         address _buyer=_msgSender();
         _onlyBuyer(_id,_buyer, _seller);
         ItemListed memory aux_List=listedItems[_id][_seller];
-        require (aux_List.item_status==ItemStatus.Sold, "ERROR: Item has been shipped");
+        require (aux_List.item_status==ItemStatus.Sold, "ERROR: Item can't be cancel");
         balanceOff[_id][_seller]-=aux_List.itemPrice;
         balanceOff[_id][_buyer]+=aux_List.itemPrice;
         listedItems[_id][_seller].item_status=ItemStatus.Canceled;
         emit EventLog(_buyer,_reason,block.timestamp, aux_List.itemPrice);
         txDuration=block.timestamp;
         itemCanceled[_buyer][_id]=_seller;
-    }     
+    }   
+
+
 ////MAKE THIS FUNCTION FUNCTIONAL FOR SELLER & BUYER
 //AS TODAY SELLER WITHDRAW FUNDS IF STATUS IS RECEIVED
 //RETUNR EXCEPTION IS NOT WORKING
-    function _receivedItem(address _seller, uint _id, string calldata _review) external {
+    function _receivedItem(address _seller, uint _id, string calldata _review) public {
         address _buyer=_msgSender();
-        _buyerSeller(_id,_buyer, _seller);
+        _onlyBuyer(_id,_buyer, _seller);
         ItemListed memory aux_List=listedItems[_id][_seller];
         require (aux_List.item_status==ItemStatus.Shipped, "ERROR: Item hasn't been shipped");
         listedItems[_id][_seller].item_status=ItemStatus.Received;
