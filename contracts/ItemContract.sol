@@ -40,6 +40,10 @@ contract ItemContract is ItemFunctionality{
     //ModifierBuyer
 
      //READ PUBLIC FUNCTIONS//
+    function _itemStatus(uint256 id, address seller)public view returns(uint8){
+        return ItemList[id][seller].status;
+    } 
+
     function _activeItem(uint256 id)public itemOwner(id, _msgSender()){
         address iOwner=_msgSender();
         ItemList[id][iOwner].status=0;
