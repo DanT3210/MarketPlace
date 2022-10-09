@@ -19,7 +19,7 @@ describe("Market contract Test", function () {
 
     const hardhardPublis= await hardhatMarket.PublishSingle(brand,model,description,price,size);
    //const arrayVariable=await hardhatMarket.sellerItemList("0",owner.address);
-   itemStatus= await hardhatMarket._itemStatus("0", owner.address);
+   itemStatus= await hardhatMarket.getStatus("0", owner.address);
    console.log("STATUS______________________");
    console.log(itemStatus);
    //console.log("Listed");
@@ -28,7 +28,7 @@ describe("Market contract Test", function () {
   it("Remove item", async function(){
     const removeItem= await hardhatMarket.connect(owner).RemoveSingleItem("0");
     const itemListed_var=await hardhatMarket.SellerList("0", owner.address);
-    itemStatus= await hardhatMarket._itemStatus("0", owner.address);
+    itemStatus= await hardhatMarket.getStatus("0", owner.address);
     console.log(itemStatus);
     console.log("ITEM REMOVED--------------------");
     console.log(itemListed_var);

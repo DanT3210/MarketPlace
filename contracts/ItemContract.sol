@@ -7,6 +7,7 @@ pragma solidity ^0.8.15;
 //@dev: Contract under development (work in progress )
 //@version: remix
 
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./ItemFunctionality.sol";
 
 error PFuntionalities__NotSeller();
@@ -18,11 +19,10 @@ contract ItemContract is ItemFunctionality{
     //  (0)    (1)    (2)      (3)        (4)      (5)       (6)       
     //{Listed,Sold, Shipped,  Rejected, Canceled, Acepted, Unlisted}
     struct Item{string brand; string model; string description; uint256 itemPrice; string size; uint8 status;} 
-    struct Order{uint256 orderID; address to; uint256 QTY; uint8 status;}
+    struct Order{uint256 itemID; address to; uint256 QTY; uint8 status;}
 
-    //Item private itemStatus; 
     uint256 private itemID;
-    uint256 public orederNo;
+    uint256 private orederNo;
 
     //Mapping ItemID to owner of the item
     mapping(uint256=>mapping(address=>Item)) private ItemList; 
@@ -42,13 +42,11 @@ contract ItemContract is ItemFunctionality{
          _;
      }
 
-
     //ModifierBuyer
 
      //READ PUBLIC FUNCTIONS//
     function _activeItem(uint256 id)public itemOwner(id, _msgSender()){
-        address iOwner=_msgSender();
-        ItemList[id][iOwner].status=0;
+        ItemList[id][_msgSender()].status=0;
     }
 
     function SellerList(uint256 id, address _account) public view returns (Item memory) {
@@ -73,6 +71,7 @@ contract ItemContract is ItemFunctionality{
         if(ItemList[id][seller].itemPrice==0){revert PFuntionalities__NotSeller();}
     }
 
+    //REMANE THIS FUNC TO *OWNUNPUBLISH_ITEM* AS WELL AS THE MODIFIER//
     function _checkItemOwner(uint256 id, address account)private view{
         require(ItemList[id][account].status==6, "ERROR: Item not found");
     }
@@ -89,8 +88,12 @@ contract ItemContract is ItemFunctionality{
         return ItemList[id][seller].status;
     }
 
+    function _removeItem(uint256 id, address seller)private{
+        delete ItemList[id][seller];
+    }
+
     //ADD TO ORDER MAPPING//
-    function _itemBought(uint256 id, address seller)private{
+    function _itemBought(uint256 id, address seller, uint256 qty)private{
         /*Item memory newItemBouhgt=ItemList[id][seller];
         newItemBouhgt.status=6;
 
@@ -98,8 +101,7 @@ contract ItemContract is ItemFunctionality{
 
         ItemList[id][newItemOwner]=newItemBouhgt;*/
         
-        
-        ItemOrders[orederNo][seller]=Order(id,_msgSender(),1,1);
+        ItemOrders[orederNo][seller]=Order(id,_msgSender(),qty,1);
         orederNo=_incrementID(orederNo);
         
     }
@@ -107,24 +109,24 @@ contract ItemContract is ItemFunctionality{
 
     //ACTION FUNCTIONS//
     function PublishSingle(string memory _brand, string memory _model, string memory _description,uint256 _price, string memory _size)public{
-        address _account=_msgSender();
-        _mint(_account, itemID, 1);
-        ItemList[itemID][_account]=Item(_brand, _model,_description,_price,_size, 0);
+        address seller=_msgSender();
+        _mint(seller, itemID, 1);
+        ItemList[itemID][seller]=Item(_brand, _model,_description,_price,_size, 0);
         itemID=_incrementID(itemID);
     }
 
     function PublishBatch(uint256[] memory ids, string[] memory _brand, string[] memory _model, string[] memory _description, uint256[] memory amounts, string[] memory _size, uint256[] memory qty)public{
-        address _account=_msgSender();
-        uint256[] memory iQTY=new uint256[](ids.length);
+        address seller=_msgSender();
+        //uint256[] memory iQTY=new uint256[](ids.length);
 
         for (uint256 i = 0; i < ids.length; i++) {
            uint256 id = ids[i]; 
-           ItemList[id][_account]=Item(_brand[i], _model[i],_description[i],amounts[i],_size[i],0);
-           iQTY[i]=qty[i];
+           ItemList[id][seller]=Item(_brand[i], _model[i],_description[i],amounts[i],_size[i],0);
+           //iQTY[i]=qty[i];
            itemID=_incrementID(itemID);
         }        
 
-        _mintBatch(_account, ids, iQTY);
+        _mintBatch(seller, ids, qty);
     }
 
     function RemoveSingleItem(uint256 id)external onlySeller(id, _msgSender()){
@@ -134,7 +136,8 @@ contract ItemContract is ItemFunctionality{
         require (iStatus==4 || iStatus==0, "ERROR: Can't delete");
 
         _burn(seller, id, 1);
-        delete ItemList[id][seller];
+        _removeItem(id,seller);
+        //delete ItemList[id][seller];
     }
 
     function RemoveBatchItems(uint256[] memory ids, uint256[] memory qty) external{
@@ -149,7 +152,8 @@ contract ItemContract is ItemFunctionality{
             require (iStatus==4 || iStatus==0, "ERROR: Can't delete"); 
             
             //iQTY[i] = qty[i];
-            delete ItemList[id][seller];
+            _removeItem(id,seller);
+            //delete ItemList[id][seller];
         }
 
         _burnBatch(seller,ids,qty);    
@@ -166,9 +170,11 @@ contract ItemContract is ItemFunctionality{
         _setApprovalForAll(seller, buyer,true);
         safeTransferFrom(seller, buyer, id, 1);
 
-        //itemBuyer[id][seller]=buyer;
-        //_updateStatus(2, id, seller);
-        _itemBought(id,seller);
+        if(qtyTotal<=1){
+            _removeItem(id,seller);
+        }
+
+        _itemBought(id,seller,1);
     }
 
     /*
@@ -192,14 +198,11 @@ contract ItemContract is ItemFunctionality{
 
             require(msg.value>=iPrice, "ERROR: Not enought funds");
             require(qtyTotal>=QTY, "ERROR: Insuficient QTY");
-            
+            _itemBought(id,seller,QTY);
 
-            for(uint256 j = 1; j <= QTY; j++) {
-                _itemBought(id,seller);
+            if(qty[i]==item_qty(seller, id)){
+                _removeItem(id,seller);
             }
-            /*if(qty[i]==item_qty(seller, id)){
-                delete ItemList[id][seller];
-            }*/
         }
         assert(msg.value>=iPrice);
 
@@ -214,7 +217,7 @@ contract ItemContract is ItemFunctionality{
 
         require(iStatus==1 || iStatus==3,"ERROR: Can't shipped");
 
-        _updateStatus(2,id,from);
+        //_updateStatus(2,id,from);
 
         emit Shipped(id, from, trackNo, to, block.timestamp);
     }
