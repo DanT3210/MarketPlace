@@ -17,7 +17,7 @@ contract ItemFunctionality is Ownable, ReentrancyGuard{
     event TransferBatch(address operator, address from, address to,uint256[] ids,uint256[] amounts);
     event ApprovalForAll(address owner, address operator, bool approved);
 
-    // Mapping from token ID to account balances *Item QTY Own by an account*
+    // Mapping from token ID to account quantity
     mapping(uint256 => mapping(address => uint256)) private _itemQTY;
 
     // Mapping from account to operator approvals
@@ -181,4 +181,11 @@ contract ItemFunctionality is Ownable, ReentrancyGuard{
         _operatorApprovals[owner][operator] = approved;
         emit ApprovalForAll(owner, operator, approved);
     }
+
+    function _asSingletonArray(uint256 element) private pure returns (uint256[] memory) {
+        uint256[] memory array = new uint256[](1);
+        array[0] = element;
+
+        return array;
+    }    
 }
