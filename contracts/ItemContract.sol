@@ -16,7 +16,7 @@ contract ItemContract is ItemFunctionality{
 
     event Shipped(uint256 id,address from,string trackNo,address to, uint256 dateTime);
 
-    //  (0)    (1)    (2)      (3)        (4)      (5)       (6)       
+    //  (0)    (1)    (2)      (3)        (4)      (5)        (6)       
     //{Listed,Sold, Shipped,  Rejected, Canceled, Acepted, Unlisted}
     struct Item{string brand; string model; string description; uint256 itemPrice; string size; uint8 status;} 
     struct Order{uint256 itemID; address to; uint256 QTY; uint8 status;}
@@ -80,12 +80,12 @@ contract ItemContract is ItemFunctionality{
         return count+1;
     }
 
-    function _updateStatus(uint8 count, uint id, address seller)private{
-        ItemList[id][seller].status=count;
+    function _updateStatus(uint8 count, uint orderNo, address seller)private{
+        ItemOrders[orderNo][seller].status=count;
     }
 
-    function _checkStatus(uint id, address seller)private view returns(uint8){
-        return ItemList[id][seller].status;
+    function _checkStatus(uint orderNo, address seller)private view returns(uint8){
+        return ItemOrders[orderNo][seller].status;
     }
 
     function _removeItem(uint256 id, address seller)private{
@@ -94,16 +94,18 @@ contract ItemContract is ItemFunctionality{
 
     //ADD TO ORDER MAPPING//
     function _itemBought(uint256 id, address seller, uint256 qty)private{
-        /*Item memory newItemBouhgt=ItemList[id][seller];
-        newItemBouhgt.status=6;
-
-        address newItemOwner=_msgSender();
-
-        ItemList[id][newItemOwner]=newItemBouhgt;*/
         
         ItemOrders[orederNo][seller]=Order(id,_msgSender(),qty,1);
         orederNo=_incrementID(orederNo);
-        
+    }
+
+    function _itemInprocess(uint256 id, address seller)private{
+        Item memory newItemBouhgt=ItemList[id][seller];
+        newItemBouhgt.status=6;
+
+        address tempOwner=_msgSender();
+
+        ItemList[id][tempOwner]=newItemBouhgt;
     }
     
 
@@ -137,12 +139,10 @@ contract ItemContract is ItemFunctionality{
 
         _burn(seller, id, 1);
         _removeItem(id,seller);
-        //delete ItemList[id][seller];
     }
 
     function RemoveBatchItems(uint256[] memory ids, uint256[] memory qty) external{
         address seller=_msgSender();
-        //uint256[] memory iQTY = new uint256[](ids.length);
 
         for(uint256 i = 0; i < ids.length; i++) {
             uint256 id = ids[i];             
@@ -150,10 +150,8 @@ contract ItemContract is ItemFunctionality{
 
             uint8 iStatus=getStatus(ids[i], seller);
             require (iStatus==4 || iStatus==0, "ERROR: Can't delete"); 
-            
-            //iQTY[i] = qty[i];
+        
             _removeItem(id,seller);
-            //delete ItemList[id][seller];
         }
 
         _burnBatch(seller,ids,qty);    
@@ -170,11 +168,13 @@ contract ItemContract is ItemFunctionality{
         _setApprovalForAll(seller, buyer,true);
         safeTransferFrom(seller, buyer, id, 1);
 
+        _itemBought(id,seller,1);
+        _itemInprocess(id,seller);
+
+        
         if(qtyTotal<=1){
             _removeItem(id,seller);
-        }
-
-        _itemBought(id,seller,1);
+        }        
     }
 
     /*
@@ -192,15 +192,16 @@ contract ItemContract is ItemFunctionality{
 
             iPrice+=(ItemList[id][seller].itemPrice*qty[i]);
 
-            //iQTY[i] = qty[i];
             qtyTotal=item_qty(seller, id);
             uint QTY=qty[i];
 
             require(msg.value>=iPrice, "ERROR: Not enought funds");
             require(qtyTotal>=QTY, "ERROR: Insuficient QTY");
-            _itemBought(id,seller,QTY);
 
-            if(qty[i]==item_qty(seller, id)){
+            _itemBought(id,seller,QTY);
+            _itemInprocess(id,seller);
+
+            if(qty[i]==qtyTotal){
                 _removeItem(id,seller);
             }
         }
@@ -211,16 +212,12 @@ contract ItemContract is ItemFunctionality{
         _safeBatchTransferFrom(seller, buyer, ids, qty);
     }
 
-    function Shipping(uint256 id, string memory trackNo, address to)external onlySeller(id, _msgSender()){
+    function Shipping(uint256 id,uint256 orderNo, string memory trackNo, address to)external{
         address from=_msgSender();
-        uint8 iStatus=_checkStatus(id,from);
+        uint8 iStatus=_checkStatus(orderNo,from);
 
         require(iStatus==1 || iStatus==3,"ERROR: Can't shipped");
-
-        //_updateStatus(2,id,from);
-
+        _updateStatus(2,orderNo,from);
         emit Shipped(id, from, trackNo, to, block.timestamp);
     }
-
-
 }
