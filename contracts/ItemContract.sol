@@ -212,7 +212,7 @@ contract ItemContract is ItemFunctionality{
         _safeBatchTransferFrom(seller, buyer, ids, qty);
     }
 
-    function Shipping(uint256 id,uint256 orderNo, string memory trackNo, address to)external{
+    function ShippingSingle(uint256 id,uint256 orderNo, string memory trackNo, address to)external{
         address from=_msgSender();
         uint8 iStatus=_checkStatus(orderNo,from);
 
@@ -220,4 +220,21 @@ contract ItemContract is ItemFunctionality{
         _updateStatus(2,orderNo,from);
         emit Shipped(id, from, trackNo, to, block.timestamp);
     }
+
+    function ShippingBatch(uint256[] memory ids, uint256[] memory ordersNo,string[] memory tracksNo, address to)external{
+        address from=_msgSender();
+        uint8 iStatus;
+
+         for(uint256 i = 0; i < ids.length; i++){
+             uint256 id = ids[i];
+
+             iStatus=_checkStatus(ordersNo[id],from);
+             require(iStatus==1 || iStatus==3,"ERROR: Can't shipped");
+
+             _updateStatus(2,ordersNo[id],from);
+
+            emit Shipped(id, from, tracksNo[i], to, block.timestamp);
+         }
+    }
+    
 }
