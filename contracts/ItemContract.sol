@@ -235,6 +235,23 @@ contract ItemContract is ItemFunctionality{
 
             emit Shipped(id, from, tracksNo[i], to, block.timestamp);
          }
-    }
-    
+    }     
+
+    function CancelSingleBuy(uint256[] memory ids, address seller, uint256[] memory OrdersNo, uint256[] memory qty, ItemContract iAddress)external{
+        address buyer=_msgSender();
+        uint256 qtyTotal;
+
+        for(uint256 i = 0; i < ids.length; i++) {
+            uint256 id = ids[i]; 
+
+            qtyTotal=iAddress.item_qty(seller, id);
+
+            require(qtyTotal>=qty[i], "ERROR: Insuficient QTY");
+            _updateStatus(6,OrdersNo[id],seller);
+            //_removeOrder(id,OrdersNo[id],seller);
+        }
+        _setApprovalForAll(buyer, seller,true);
+
+        _safeBatchTransferFrom(buyer, seller, ids, qty); 
+    }  
 }
